@@ -106,16 +106,12 @@ function MenuBook() {
       if (polling) return;
       polling = true;
       try {
+        // The timestamp query parameter prevents cached polling responses.
+        // Do not add Cache-Control/Pragma request headers here: they can trigger
+        // a CORS preflight that the server may not allow.
         const { data } = await axios.get(
           `${API_URL}/books/scan-mode?_t=${Date.now()}`,
-          {
-            ...config,
-            headers: {
-              ...config.headers,
-              "Cache-Control": "no-cache",
-              "Pragma": "no-cache"
-            }
-          }
+          config
         );
         if (!alive) return;
         const uid = String(data?.pendingUid || "").trim().toUpperCase();
@@ -140,7 +136,12 @@ function MenuBook() {
         clearTimeout(notificationTimer);
         notificationTimer = window.setTimeout(() => { if (alive) setScanNotification(""); }, 4500);
       } catch (err) {
-        if (alive) console.error("Book scan polling error:", err.response?.data || err.message);
+        if (alive) {
+          console.error(
+            "Book scan polling error:",
+            err.response?.data || err.message
+          );
+        }
       } finally {
         polling = false;
       }
