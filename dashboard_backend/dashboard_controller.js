@@ -26,6 +26,9 @@ export function createDashboardController(pool) {
   const isUID = (v, length) =>
     new RegExp(`^[0-9A-F]{${length}}$`).test(v);
 
+  // RC522 tags may expose 4-byte (8 hex) or 7-byte (14 hex) UIDs.
+  const isBookUID = (v) => isUID(v, 8) || isUID(v, 14);
+
   const asyncRoute = (fn) => (req, res, next) =>
     Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -168,13 +171,12 @@ export function createDashboardController(pool) {
         });
       }
 
-      // MENU BOOK: UID 14 aksara hexadecimal
+      // MENU BOOK: support 8- or 14-character hexadecimal UID
       if (state.bookMode) {
-        if (!isUID(uid, 14)) {
+        if (!isBookUID(uid)) {
           return res.json({
             received: false,
-            message:
-              "Menu Book accepts only 14-character UID.",
+            message: "Menu Book accepts 8- or 14-character hexadecimal UID.",
           });
         }
 
@@ -207,8 +209,13 @@ export function createDashboardController(pool) {
   // LOGIN RFID MODE
   router.post("/dashboard-auth/scan-mode", (req, res) => {
     state.authMode = Boolean(req.body?.active);
-
     if (state.authMode) {
+      state.userMode = false;
+      state.bookMode = false;
+      state.adminScanMode = false;
+      state.pendingUser = null;
+      state.pendingBook = null;
+      state.adminScanResult = null;
       state.authResult = null;
     }
 
@@ -218,6 +225,7 @@ export function createDashboardController(pool) {
   });
 
   router.get("/dashboard-auth/scan-result", (_req, res) => {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
     const result = state.authResult;
     state.authResult = null;
 
@@ -288,6 +296,14 @@ export function createDashboardController(pool) {
     requireAdmin,
     (req, res) => {
       state.userMode = Boolean(req.body?.active);
+      if (state.userMode) {
+        state.authMode = false;
+        state.bookMode = false;
+        state.adminScanMode = false;
+        state.authResult = null;
+        state.pendingBook = null;
+        state.adminScanResult = null;
+      }
       state.pendingUser = null;
 
       res.json({
@@ -300,6 +316,7 @@ export function createDashboardController(pool) {
     "/users/pending-card",
     requireAdmin,
     (_req, res) => {
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate");
       const result = state.pendingUser;
       state.pendingUser = null;
 
@@ -313,6 +330,14 @@ export function createDashboardController(pool) {
     requireAdmin,
     (req, res) => {
       state.bookMode = Boolean(req.body?.active);
+      if (state.bookMode) {
+        state.authMode = false;
+        state.userMode = false;
+        state.adminScanMode = false;
+        state.authResult = null;
+        state.pendingUser = null;
+        state.adminScanResult = null;
+      }
       state.pendingBook = null;
 
       res.json({
@@ -564,7 +589,15 @@ export function createDashboardController(pool) {
 
   router.post("/admins/scan-mode", requireAdmin, (req, res) => {
     state.adminScanMode = Boolean(req.body?.active);
-    if (state.adminScanMode) state.adminScanResult = null;
+    if (state.adminScanMode) {
+      state.authMode = false;
+      state.userMode = false;
+      state.bookMode = false;
+      state.authResult = null;
+      state.pendingUser = null;
+      state.pendingBook = null;
+      state.adminScanResult = null;
+    }
     res.json({ active: state.adminScanMode, mode: req.body?.mode || "" });
   });
 
@@ -572,7 +605,6 @@ export function createDashboardController(pool) {
     const result = state.adminScanResult;
     if (result?.status === "success" || result?.status === "error") state.adminScanResult = null;
     res.set("Cache-Control", "no-store");
-    if (result?.status === "error") return res.status(409).json(result);
     res.json(result || {});
   });
 
@@ -772,9 +804,9 @@ export function createDashboardController(pool) {
     asyncRoute(async (req, res) => {
       const uid = normalizeUID(req.body?.uid);
 
-      if (!isUID(uid, 14)) {
+      if (!isBookUID(uid)) {
         return res.status(400).json({
-          message: "Book UID must contain exactly 14 hexadecimal characters."
+          message: "Book UID must contain 8 or 14 hexadecimal characters."
         });
       }
 
