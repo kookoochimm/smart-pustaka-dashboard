@@ -16,13 +16,20 @@ const allowedOrigins = (process.env.CORS_ORIGINS || "")
 
 app.use(
   cors({
-    origin(origin, callback) {
-      // Requests without Origin (health checks / server-to-server) are allowed.
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    origin: function (origin, callback) {
+      if (
+        !origin ||
+        allowedOrigins.length === 0 ||
+        allowedOrigins.includes(origin)
+      ) {
         return callback(null, true);
       }
+
       return callback(new Error("Origin is not allowed by CORS."));
     },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 app.use(express.json({ limit: "45mb" }));
