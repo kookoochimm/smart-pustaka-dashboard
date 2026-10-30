@@ -93,53 +93,83 @@ function MenuBook() {
   }, [fetchBooks]);
 
   // ==========================================
-  // RFID SCAN MODE + MINI NOTIFICATION
+  // RFID BOOK SCAN MODE
+  // Follows the same lifecycle as MenuUser:
+  // 1. Activate RFID mode
+  // 2. Poll the pending scan endpoint
+  // 3. Handle existing / unknown UID
+  // 4. Stop polling and deactivate mode on unmount
   // ==========================================
   useEffect(() => {
     let alive = true;
-    let notificationTimer;
-    let interval = null;
+    let intervalId = null;
     let polling = false;
+    let notificationTimer = null;
 
-    const config = authConfig();
-    const pollBookScan = async () => {
-      if (polling) return;
+    const token = localStorage.getItem("token");
+    const config = {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    };
+
+    const pollScannedBook = async () => {
+      if (polling || !alive) return;
       polling = true;
+
       try {
-        // The timestamp query parameter prevents cached polling responses.
-        // Do not add Cache-Control/Pragma request headers here: they can trigger
-        // a CORS preflight that the server may not allow.
-        const { data } = await axios.get(
+        // Keep this request simple, just like MenuUser.
+        // The changing query parameter avoids cached responses without
+        // adding Cache-Control / Pragma headers that can trigger CORS preflight.
+        const response = await axios.get(
           `${API_URL}/books/scan-mode?_t=${Date.now()}`,
           config
         );
+
         if (!alive) return;
-        const uid = String(data?.pendingUid || "").trim().toUpperCase();
-        const scanStatus = String(data?.scanStatus || "idle");
+
+        const data = response.data || {};
+        const uid = String(data.pendingUid || "").replace(/\\s+/g, "").toUpperCase();
+        const scanStatus = String(data.scanStatus || "idle").toLowerCase();
+
         if (!uid || uid === lastScannedUidRef.current) return;
+
         lastScannedUidRef.current = uid;
-        setScannedUid(uid);
-        setSearchTerm("");
-        setSearchQuery("");
         setError("");
         setSuccess("");
+        setSearchTerm("");
+        setSearchQuery("");
+
         if (scanStatus === "exists") {
+          setScannedUid(uid);
+          setIsAddOpen(false);
+          setBookToEdit(null);
+          setScanNotification(`Book UID ${uid} found. The list is filtered to this UID.`);
           await fetchBooks();
           if (!alive) return;
-          setScanNotification(`Book UID ${uid} found. The list is filtered to this UID.`);
-        } else {
+        } else if (scanStatus === "unknown") {
+          setScannedUid("");
           setForm({ ...EMPTY_FORM, uid });
           setBookToEdit(null);
           setScanNotification(`Unknown book detected: ${uid}. Add Book form opened.`);
           setIsAddOpen(true);
+        } else {
+          // Ignore incomplete / idle scan responses.
+          lastScannedUidRef.current = "";
+          return;
         }
-        clearTimeout(notificationTimer);
-        notificationTimer = window.setTimeout(() => { if (alive) setScanNotification(""); }, 4500);
+
+        if (notificationTimer) window.clearTimeout(notificationTimer);
+        notificationTimer = window.setTimeout(() => {
+          if (alive) setScanNotification("");
+        }, 4500);
       } catch (err) {
         if (alive) {
           console.error(
-            "Book scan polling error:",
+            "Book RFID polling error:",
+            err.response?.status,
             err.response?.data || err.message
+          );
+          setScanNotification(
+            err.response?.data?.message || "Cannot receive RFID scan. Check backend connection and login token."
           );
         }
       } finally {
@@ -147,26 +177,46 @@ function MenuBook() {
       }
     };
 
-    const enableBookScan = async () => {
+    const startBookRegistrationMode = async () => {
       try {
-        const { data } = await axios.post(`${API_URL}/books/scan-mode`, { active: true }, config);
+        const response = await axios.post(
+          `${API_URL}/books/scan-mode`,
+          { active: true },
+          config
+        );
+
         if (!alive) return;
-        if (data?.active !== true) {
-          setError("Backend did not activate book RFID scan mode.");
+
+        if (response.data?.active !== true) {
+          setError("Backend did not activate book RFID scan mode. Please reopen Book Management.");
           return;
         }
-        await pollBookScan();
-        if (alive) interval = window.setInterval(pollBookScan, 700);
+
+        setScanNotification("");
+        await pollScannedBook();
+
+        if (alive) {
+          intervalId = window.setInterval(pollScannedBook, 700);
+        }
       } catch (err) {
-        if (alive) setError(err.response?.data?.message || "Unable to activate book RFID scan mode. Check backend and login token.");
+        if (alive) {
+          setError(
+            err.response?.data?.message ||
+            "Unable to activate book RFID scan mode. Check backend connection and login token."
+          );
+        }
       }
     };
 
-    enableBookScan();
+    startBookRegistrationMode();
+
     return () => {
       alive = false;
-      if (interval !== null) window.clearInterval(interval);
-      clearTimeout(notificationTimer);
+
+      if (intervalId !== null) window.clearInterval(intervalId);
+      if (notificationTimer !== null) window.clearTimeout(notificationTimer);
+
+      // Stop this page's RFID mode and clear any unconsumed scan.
       axios.post(`${API_URL}/books/scan-mode`, { active: false }, config).catch(() => {});
       axios.post(`${API_URL}/books/scan-cancel`, {}, config).catch(() => {});
     };
