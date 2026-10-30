@@ -128,6 +128,8 @@ function MenuBook() {
         setError("");
         setSuccess("");
         if (scanStatus === "exists") {
+          await fetchBooks();
+          if (!alive) return;
           setScanNotification(`Book UID ${uid} found. The list is filtered to this UID.`);
         } else {
           setForm({ ...EMPTY_FORM, uid });
@@ -167,7 +169,7 @@ function MenuBook() {
       axios.post(`${API_URL}/books/scan-mode`, { active: false }, config).catch(() => {});
       axios.post(`${API_URL}/books/scan-cancel`, {}, config).catch(() => {});
     };
-  }, []);
+  }, [fetchBooks]);
 
   // ==========================================
   // SEARCH AND SORT BOOKS
@@ -177,10 +179,7 @@ function MenuBook() {
 
     return [...books]
       .filter((book) => {
-        const uid = String(book.uid ?? "").trim().toUpperCase();
-
-        // MenuBook only lists books with a valid 14-character hexadecimal RFID UID.
-        if (!/^[0-9A-F]{14}$/.test(uid)) return false;
+        const uid = String(book.uid ?? "").replace(/\s+/g, "").trim().toUpperCase();
 
         if (scannedUid && uid !== scannedUid) return false;
         if (!query) return true;
