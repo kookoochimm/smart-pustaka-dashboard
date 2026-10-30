@@ -42,10 +42,12 @@ export default function MenuAdmin() {
       if (polling) return;
       polling = true;
       try {
-        const { data } = await axios.get(`${API_URL}/admins/scan-result?_t=${Date.now()}`, {
-          ...tokenConfig(),
-          headers: { ...tokenConfig().headers, "Cache-Control": "no-cache", Pragma: "no-cache" }
-        });
+        // Match MenuUser's polling request: send only the Bearer token.
+        // The timestamp query parameter is enough to avoid cached scan results.
+        const { data } = await axios.get(
+          `${API_URL}/admins/scan-result?_t=${Date.now()}`,
+          tokenConfig()
+        );
         if (!alive || !data || !data.status) return;
         if (data.status === "success" && data.uid) {
           setForm((old) => ({ ...old, uid: String(data.uid).toUpperCase() }));
@@ -62,6 +64,7 @@ export default function MenuAdmin() {
         if (alive) {
           setError(e.response?.data?.message || "RFID scan failed. Check the backend connection.");
           setScanActive(false);
+          await stopBackendScan();
         }
       } finally {
         polling = false;
@@ -69,14 +72,34 @@ export default function MenuAdmin() {
     };
     poll();
     timer = window.setInterval(poll, 600);
-    return () => { alive = false; window.clearInterval(timer); };
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      stopBackendScan();
+    };
   }, [scanActive]);
 
   const startScan = async (kind) => {
     setError(""); setNotice("Tap the new 8-character RFID admin card on the reader.");
     setForm((old) => ({ ...old, uid: "" }));
-    try { await axios.post(`${API_URL}/admins/scan-mode`, { active: true, mode: kind }, tokenConfig()); setScanActive(true); }
-    catch (e) { setError(e.response?.data?.message || "Could not activate RFID scanning."); }
+    try {
+      const response = await axios.post(
+        `${API_URL}/admins/scan-mode`,
+        { active: true, mode: kind },
+        tokenConfig()
+      );
+
+      if (response.data?.active !== true) {
+        setScanActive(false);
+        setError("Backend did not activate admin RFID scan mode. Please try again.");
+        return;
+      }
+
+      setScanActive(true);
+    } catch (e) {
+      setScanActive(false);
+      setError(e.response?.data?.message || "Could not activate RFID scanning.");
+    }
   };
   const stopScan = async () => { setScanActive(false); try { await axios.post(`${API_URL}/admins/scan-mode`, { active: false }, tokenConfig()); } catch {} };
 
