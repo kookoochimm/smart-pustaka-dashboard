@@ -1107,6 +1107,52 @@ export function createDashboardController(pool) {
     })
   );
 
+  
+  // UPDATE FINE PAYMENT STATUS
+  router.patch(
+    "/fines/:borrow_id/paid",
+    requireAdmin,
+    asyncRoute(async (req, res) => {
+      const borrowId = Number(req.params.borrow_id);
+
+      if (!Number.isInteger(borrowId) || borrowId <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid borrowing record ID."
+        });
+      }
+
+      const [records] = await pool.query(
+        `SELECT borrow_id
+         FROM borrow
+         WHERE borrow_id = ?
+         LIMIT 1`,
+        [borrowId]
+      );
+
+      if (!records.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Borrowing record not found."
+        });
+      }
+
+      await pool.query(
+        `UPDATE borrow
+         SET payment_status = 'paid'
+         WHERE borrow_id = ?`,
+        [borrowId]
+      );
+
+      return res.json({
+        success: true,
+        message: "Payment status updated successfully.",
+        borrow_id: borrowId,
+        payment_status: "paid"
+      });
+    })
+  );
+
   // PENGENDALIAN ERROR
   router.use((err, _req, res, _next) => {
     console.error("Dashboard controller error:", err);
