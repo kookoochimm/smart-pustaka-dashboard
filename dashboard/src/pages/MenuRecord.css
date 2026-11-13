@@ -691,3 +691,212 @@
     min-height: 43px;
   }
 }
+
+/* =========================================================
+   RETURNED BUTTON SPACING
+   ========================================================= */
+
+/* The two buttons share the same class in MenuRecord.jsx.
+   This adds breathing room without requiring JSX changes. */
+.record-modal-done + .record-modal-done {
+  margin-top: 12px;
+}
+
+/* If the buttons are placed inside this wrapper, use the gap. */
+.record-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.record-modal-actions .record-modal-done {
+  width: 100%;
+  margin: 0;
+}
+
+/* =========================================================
+   CUSTOM RETURN CONFIRMATION POPUP
+   These styles apply when the matching confirmation markup
+   is present in MenuRecord.jsx.
+   ========================================================= */
+
+.record-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 20px;
+  background: rgba(18, 35, 63, 0.48);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  animation: recordConfirmFadeIn 160ms ease-out;
+}
+
+.record-confirm-dialog {
+  width: min(100%, 440px);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 32px;
+  border: 1px solid rgba(222, 231, 244, 0.95);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(18, 35, 63, 0.24);
+  text-align: center;
+  animation: recordConfirmPopIn 180ms ease-out;
+}
+
+.record-confirm-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 18px;
+  border-radius: 20px;
+  background: #eaf1ff;
+  color: #2456a4;
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.record-confirm-eyebrow {
+  margin: 0 0 8px;
+  color: #557bb8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.7px;
+}
+
+.record-confirm-dialog h2 {
+  margin: 0;
+  color: #1c3154;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.record-confirm-message {
+  margin: 12px 0 20px;
+  color: #71819a;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.record-confirm-book {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid #e5ecf6;
+  border-radius: 12px;
+  background: #f7f9fd;
+  text-align: left;
+}
+
+.record-confirm-book span {
+  color: #8190a7;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.record-confirm-book strong {
+  color: #243b60;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.record-confirm-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.record-confirm-actions button {
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    background 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.record-confirm-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.record-confirm-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.record-confirm-cancel {
+  flex: 0 0 34%;
+  border: 1px solid #dce5f1;
+  background: #f5f7fb;
+  color: #52647e;
+}
+
+.record-confirm-cancel:hover:not(:disabled) {
+  background: #eaf0f8;
+}
+
+.record-confirm-accept {
+  flex: 1;
+  border: 1px solid #2456a4;
+  background: #2456a4;
+  color: #ffffff;
+  box-shadow: 0 5px 12px rgba(36, 86, 164, 0.18);
+}
+
+.record-confirm-accept:hover:not(:disabled) {
+  background: #1d478b;
+  box-shadow: 0 7px 16px rgba(36, 86, 164, 0.24);
+}
+
+@keyframes recordConfirmFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes recordConfirmPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 480px) {
+  .record-confirm-dialog {
+    padding: 26px 20px;
+  }
+
+  .record-confirm-actions {
+    flex-direction: column-reverse;
+  }
+
+  .record-confirm-cancel {
+    flex-basis: auto;
+    min-height: 44px;
+  }
+}
