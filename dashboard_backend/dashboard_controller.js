@@ -1108,6 +1108,78 @@ export function createDashboardController(pool) {
   );
 
   
+  // MANUAL RETURN CONFIRMATION FROM ADMIN RECORD DETAILS
+  // Sets the return date while preserving the existing fine/payment values.
+  router.patch(
+    "/records/:borrow_id/returned",
+    requireAdmin,
+    asyncRoute(async (req, res) => {
+      const borrowId = Number(req.params.borrow_id);
+
+      if (!Number.isInteger(borrowId) || borrowId <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid borrowing record ID.",
+        });
+      }
+
+      const [records] = await pool.query(
+        `SELECT borrow_id, return_date
+         FROM borrow
+         WHERE borrow_id = ?
+         LIMIT 1`,
+        [borrowId]
+      );
+
+      if (!records.length) {
+        return res.status(404).json({
+          success: false,
+          message: "Borrowing record not found.",
+        });
+      }
+
+      const existingReturnDate = String(records[0].return_date ?? "").trim();
+      if (
+        existingReturnDate !== "" &&
+        existingReturnDate.toLowerCase() !== "null" &&
+        existingReturnDate.toLowerCase() !== "not returned"
+      ) {
+        return res.status(409).json({
+          success: false,
+          message: "This book has already been marked as returned.",
+          return_date: records[0].return_date,
+        });
+      }
+
+      await pool.query(
+        `UPDATE borrow
+         SET return_date = CURDATE()
+         WHERE borrow_id = ?
+           AND (
+             return_date IS NULL
+             OR TRIM(CAST(return_date AS CHAR)) = ''
+             OR LOWER(TRIM(CAST(return_date AS CHAR))) IN ('null', 'not returned')
+           )`,
+        [borrowId]
+      );
+
+      const [updated] = await pool.query(
+        `SELECT borrow_id, return_date
+         FROM borrow
+         WHERE borrow_id = ?
+         LIMIT 1`,
+        [borrowId]
+      );
+
+      return res.json({
+        success: true,
+        message: "Book has been marked as returned.",
+        borrow_id: borrowId,
+        return_date: updated[0]?.return_date ?? null,
+      });
+    })
+  );
+
   // UPDATE FINE PAYMENT STATUS
   router.patch(
     "/fines/:borrow_id/paid",
