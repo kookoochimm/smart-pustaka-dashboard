@@ -34,6 +34,7 @@ function MenuRecord() {
   const [error, setError] = useState("");
   const [returning, setReturning] = useState(false);
   const [returnError, setReturnError] = useState("");
+  const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
   // Fetch records from MySQL through Express.
   const fetchRecords = useCallback(async () => {
@@ -226,17 +227,21 @@ function MenuRecord() {
     setSearchQuery("");
   };
 
-  // Manually confirm that the selected book has been returned.
-  const handleMarkReturned = async () => {
+  // Open the custom confirmation dialog before marking the book as returned.
+  const handleMarkReturned = () => {
     if (!selectedRecord?.borrow_id || isReturned(selectedRecord) || returning) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Confirm that "${selectedRecord.book_title || "this book"}" has been returned?`
-    );
+    setReturnError("");
+    setShowReturnConfirm(true);
+  };
 
-    if (!confirmed) return;
+  // Update the borrowing record after the admin confirms the return.
+  const handleConfirmReturn = async () => {
+    if (!selectedRecord?.borrow_id || isReturned(selectedRecord) || returning) {
+      return;
+    }
 
     try {
       setReturning(true);
@@ -248,6 +253,7 @@ function MenuRecord() {
         authConfig()
       );
 
+      setShowReturnConfirm(false);
       setSelectedRecord(null);
       await fetchRecords();
     } catch (err) {
@@ -257,6 +263,7 @@ function MenuRecord() {
           err.message ||
           "Unable to update the return status."
       );
+      setShowReturnConfirm(false);
     } finally {
       setReturning(false);
     }
@@ -658,11 +665,78 @@ function MenuRecord() {
               className="record-modal-done"
               onClick={() => {
                 setReturnError("");
+                setShowReturnConfirm(false);
                 setSelectedRecord(null);
               }}
             >
               CLOSE
             </button>
+          </section>
+        </div>
+      )}
+
+      {/* Custom confirmation popup for marking a book as returned */}
+      {showReturnConfirm && selectedRecord && (
+        <div
+          className="record-confirm-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !returning) {
+              setShowReturnConfirm(false);
+            }
+          }}
+        >
+          <section
+            className="record-confirm-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="record-confirm-title"
+            aria-describedby="record-confirm-message"
+          >
+            <div className="record-confirm-icon" aria-hidden="true">
+              ✓
+            </div>
+
+            <p className="record-confirm-eyebrow">
+              LIBRARY MANAGEMENT
+            </p>
+
+            <h2 id="record-confirm-title">
+              CONFIRM BOOK RETURN
+            </h2>
+
+            <p
+              className="record-confirm-message"
+              id="record-confirm-message"
+            >
+              Are you sure you want to mark this book as returned?
+            </p>
+
+            <div className="record-confirm-book">
+              <span>BOOK TITLE</span>
+              <strong>
+                {selectedRecord.book_title || "Untitled book"}
+              </strong>
+            </div>
+
+            <div className="record-confirm-actions">
+              <button
+                type="button"
+                className="record-confirm-cancel"
+                onClick={() => setShowReturnConfirm(false)}
+                disabled={returning}
+              >
+                CANCEL
+              </button>
+
+              <button
+                type="button"
+                className="record-confirm-accept"
+                onClick={handleConfirmReturn}
+                disabled={returning}
+              >
+                {returning ? "UPDATING..." : "YES, RETURN BOOK"}
+              </button>
+            </div>
           </section>
         </div>
       )}
