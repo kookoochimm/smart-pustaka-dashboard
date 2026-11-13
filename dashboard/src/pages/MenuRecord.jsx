@@ -32,6 +32,8 @@ function MenuRecord() {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [returning, setReturning] = useState(false);
+  const [returnError, setReturnError] = useState("");
 
   // Fetch records from MySQL through Express.
   const fetchRecords = useCallback(async () => {
@@ -222,6 +224,42 @@ function MenuRecord() {
   const clearSearch = () => {
     setSearchTerm("");
     setSearchQuery("");
+  };
+
+  // Manually confirm that the selected book has been returned.
+  const handleMarkReturned = async () => {
+    if (!selectedRecord?.borrow_id || isReturned(selectedRecord) || returning) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Confirm that "${selectedRecord.book_title || "this book"}" has been returned?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setReturning(true);
+      setReturnError("");
+
+      await axios.patch(
+        `${API_URL}/records/${selectedRecord.borrow_id}/returned`,
+        {},
+        authConfig()
+      );
+
+      setSelectedRecord(null);
+      await fetchRecords();
+    } catch (err) {
+      console.error("MARK BOOK RETURNED ERROR:", err);
+      setReturnError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to update the return status."
+      );
+    } finally {
+      setReturning(false);
+    }
   };
 
   return (
@@ -598,10 +636,30 @@ function MenuRecord() {
               </div>
             </div>
 
+            {returnError && (
+              <div className="record-alert" role="alert">
+                {returnError}
+              </div>
+            )}
+
+            {!isReturned(selectedRecord) && (
+              <button
+                type="button"
+                className="record-modal-done"
+                onClick={handleMarkReturned}
+                disabled={returning}
+              >
+                {returning ? "UPDATING..." : "RETURNED"}
+              </button>
+            )}
+
             <button
               type="button"
               className="record-modal-done"
-              onClick={() => setSelectedRecord(null)}
+              onClick={() => {
+                setReturnError("");
+                setSelectedRecord(null);
+              }}
             >
               CLOSE
             </button>
