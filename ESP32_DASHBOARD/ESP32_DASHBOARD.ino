@@ -6,8 +6,8 @@
 
 // ================= WIFI =================
 
-const char* WIFI_SSID = "www";
-const char* WIFI_PASSWORD = "GIYUTOMIOKA";
+const char* WIFI_SSID = "YOUR_WIFI";
+const char* WIFI_PASSWORD = "YOUR_PASSWORD";
 
 // ================= CLOUD BACKEND =================
 
